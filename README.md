@@ -9,9 +9,11 @@ Aplicacao web simples para organizar tarefas corporativas com categorias, checkb
 
 ## Como iniciar
 
-1. Execute o arquivo iniciar-organizador.bat
-2. Se preferir pelo terminal, rode npm install e depois npm start
-3. Abra http://localhost:3210
+1. Em uso local, execute o arquivo iniciar-organizador.bat
+2. Em servidor, execute iniciar-organizador.bat server para nao abrir navegador
+3. Se houver troca de versao do Node.js na maquina, o inicializador tenta recompilar o better-sqlite3 automaticamente
+4. Se preferir pelo terminal, rode npm install e depois npm start
+5. Abra http://localhost:3210
 
 ## Recursos
 
