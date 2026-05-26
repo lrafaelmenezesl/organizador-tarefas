@@ -1,20 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const Database = require('better-sqlite3');
 
 const PORT = Number(process.env.PORT) || 3210;
 const app = express();
 
 const dataDirectory = path.join(__dirname, 'data');
-const databasePath = path.join(dataDirectory, 'organizador.db');
+const databasePath = path.join(dataDirectory, 'organizador.json');
 
 if (!fs.existsSync(dataDirectory)) {
   fs.mkdirSync(dataDirectory, { recursive: true });
 }
-
-const db = new Database(databasePath);
-db.pragma('journal_mode = WAL');
 
 const seedData = [
   {
@@ -188,93 +184,116 @@ function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function createTimestamp() {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function createInitialStore() {
+  const createdAt = createTimestamp();
+  let nextCategoryId = 1;
+  let nextTaskId = 1;
+
+  const categories = seedData.map((category, categoryIndex) => {
+    const categoryId = nextCategoryId;
+    nextCategoryId += 1;
+
+    return {
+      id: categoryId,
+      name: category.name,
+      color: category.color,
+      sortOrder: categoryIndex,
+      createdAt
+    };
+  });
+
+  const tasks = seedData.flatMap((category, categoryIndex) => {
+    const categoryId = categoryIndex + 1;
+
+    return category.tasks.map((task, taskIndex) => {
+      const item = {
+        id: nextTaskId,
+        categoryId,
+        title: task.title,
+        details: task.details || '',
+        priority: normalizePriority(task.priority),
+        completed: false,
+        position: taskIndex,
+        createdAt,
+        updatedAt: createdAt
+      };
+
+      nextTaskId += 1;
+      return item;
+    });
+  });
+
+  return {
+    meta: {
+      nextCategoryId,
+      nextTaskId
+    },
+    categories,
+    tasks
+  };
+}
+
+function writeStore(store) {
+  fs.writeFileSync(databasePath, JSON.stringify(store, null, 2), 'utf8');
+}
+
+function ensureStore() {
+  if (!fs.existsSync(databasePath)) {
+    writeStore(createInitialStore());
+    return;
+  }
+
+  const currentStore = readStore();
+  if (!Array.isArray(currentStore.categories) || !Array.isArray(currentStore.tasks)) {
+    writeStore(createInitialStore());
+  }
+}
+
+function readStore() {
+  return JSON.parse(fs.readFileSync(databasePath, 'utf8'));
+}
+
+function updateStore(updater) {
+  const currentStore = readStore();
+  const nextStore = updater(currentStore) || currentStore;
+  writeStore(nextStore);
+  return nextStore;
+}
+
 function mapTask(row) {
   return {
     id: row.id,
-    categoryId: row.category_id,
+    categoryId: row.categoryId,
     title: row.title,
     details: row.details,
     priority: row.priority,
     completed: Boolean(row.completed),
     position: row.position,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
   };
 }
 
-function setupDatabase() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      color TEXT NOT NULL DEFAULT '#111111',
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      details TEXT NOT NULL DEFAULT '',
-      priority TEXT NOT NULL DEFAULT 'media',
-      completed INTEGER NOT NULL DEFAULT 0,
-      position INTEGER NOT NULL DEFAULT 0,
-      is_seed INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-    );
-  `);
-
-  const totalCategories = db.prepare('SELECT COUNT(*) AS total FROM categories').get().total;
-
-  if (totalCategories > 0) {
-    return;
-  }
-
-  const insertCategory = db.prepare(
-    'INSERT INTO categories (name, color, sort_order) VALUES (?, ?, ?)'
-  );
-  const insertTask = db.prepare(
-    `INSERT INTO tasks (category_id, title, details, priority, completed, position, is_seed)
-     VALUES (?, ?, ?, ?, 0, ?, 1)`
-  );
-
-  const seedTransaction = db.transaction(() => {
-    seedData.forEach((category, categoryIndex) => {
-      const result = insertCategory.run(category.name, category.color, categoryIndex);
-      category.tasks.forEach((task, taskIndex) => {
-        insertTask.run(
-          result.lastInsertRowid,
-          task.title,
-          task.details || '',
-          normalizePriority(task.priority),
-          taskIndex
-        );
-      });
-    });
-  });
-
-  seedTransaction();
-}
-
 function getCategoriesWithTasks() {
-  const categories = db
-    .prepare('SELECT id, name, color, sort_order AS sortOrder, created_at AS createdAt FROM categories ORDER BY sort_order, id')
-    .all()
+  const store = readStore();
+  const categories = [...store.categories]
+    .sort((first, second) => first.sortOrder - second.sortOrder || first.id - second.id)
     .map((category) => ({ ...category, tasks: [] }));
 
-  const tasks = db
-    .prepare(
-      `SELECT id, category_id, title, details, priority, completed, position, created_at, updated_at
-       FROM tasks
-       ORDER BY completed ASC,
-                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                position,
-                id`
-    )
-    .all()
+  const priorityRank = { alta: 0, media: 1, baixa: 2 };
+  const tasks = [...store.tasks]
+    .sort((first, second) => {
+      return (
+        Number(first.completed) - Number(second.completed) ||
+        priorityRank[first.priority] - priorityRank[second.priority] ||
+        first.position - second.position ||
+        first.id - second.id
+      );
+    })
     .map(mapTask);
 
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
@@ -288,7 +307,7 @@ function getCategoriesWithTasks() {
   return categories;
 }
 
-setupDatabase();
+ensureStore();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -318,14 +337,24 @@ app.post('/api/categories', (request, response) => {
     return response.status(400).json({ error: 'Informe um nome para a categoria.' });
   }
 
-  const nextOrder = db.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM categories').get().nextOrder;
-  const result = db.prepare('INSERT INTO categories (name, color, sort_order) VALUES (?, ?, ?)').run(name, color, nextOrder);
+  let createdCategory;
+  updateStore((store) => {
+    const nextOrder = store.categories.reduce((maxOrder, category) => Math.max(maxOrder, category.sortOrder), -1) + 1;
+    createdCategory = {
+      id: store.meta.nextCategoryId,
+      name,
+      color,
+      sortOrder: nextOrder,
+      createdAt: createTimestamp()
+    };
+
+    store.meta.nextCategoryId += 1;
+    store.categories.push(createdCategory);
+    return store;
+  });
 
   return response.status(201).json({
-    id: result.lastInsertRowid,
-    name,
-    color,
-    sortOrder: nextOrder,
+    ...createdCategory,
     tasks: []
   });
 });
@@ -340,34 +369,43 @@ app.post('/api/tasks', (request, response) => {
     return response.status(400).json({ error: 'Informe um titulo para a tarefa.' });
   }
 
-  const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
+  const store = readStore();
+  const category = store.categories.find((item) => item.id === categoryId);
   if (!category) {
     return response.status(400).json({ error: 'Categoria invalida.' });
   }
 
-  const nextPosition = db
-    .prepare('SELECT COALESCE(MAX(position), -1) + 1 AS nextPosition FROM tasks WHERE category_id = ?')
-    .get(categoryId).nextPosition;
+  const nextPosition = store.tasks
+    .filter((task) => task.categoryId === categoryId)
+    .reduce((maxPosition, task) => Math.max(maxPosition, task.position), -1) + 1;
 
-  const result = db.prepare(
-    `INSERT INTO tasks (category_id, title, details, priority, completed, position, updated_at)
-     VALUES (?, ?, ?, ?, 0, ?, CURRENT_TIMESTAMP)`
-  ).run(categoryId, title, details, priority, nextPosition);
+  let createdTask;
+  updateStore((currentStore) => {
+    const timestamp = createTimestamp();
+    createdTask = {
+      id: currentStore.meta.nextTaskId,
+      categoryId,
+      title,
+      details,
+      priority,
+      completed: false,
+      position: nextPosition,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
 
-  const task = db
-    .prepare(
-      `SELECT id, category_id, title, details, priority, completed, position, created_at, updated_at
-       FROM tasks
-       WHERE id = ?`
-    )
-    .get(result.lastInsertRowid);
+    currentStore.meta.nextTaskId += 1;
+    currentStore.tasks.push(createdTask);
+    return currentStore;
+  });
 
-  return response.status(201).json(mapTask(task));
+  return response.status(201).json(mapTask(createdTask));
 });
 
 app.patch('/api/tasks/:id', (request, response) => {
   const taskId = Number(request.params.id);
-  const currentTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+  const store = readStore();
+  const currentTask = store.tasks.find((task) => task.id === taskId);
 
   if (!currentTask) {
     return response.status(404).json({ error: 'Tarefa nao encontrada.' });
@@ -376,40 +414,49 @@ app.patch('/api/tasks/:id', (request, response) => {
   const title = request.body.title === undefined ? currentTask.title : normalizeString(request.body.title);
   const details = request.body.details === undefined ? currentTask.details : normalizeString(request.body.details);
   const priority = request.body.priority === undefined ? currentTask.priority : normalizePriority(normalizeString(request.body.priority));
-  const completed = request.body.completed === undefined ? currentTask.completed : request.body.completed ? 1 : 0;
-  const categoryId = request.body.categoryId === undefined ? currentTask.category_id : Number(request.body.categoryId);
+  const completed = request.body.completed === undefined ? currentTask.completed : Boolean(request.body.completed);
+  const categoryId = request.body.categoryId === undefined ? currentTask.categoryId : Number(request.body.categoryId);
 
   if (!title) {
     return response.status(400).json({ error: 'Informe um titulo valido.' });
   }
 
-  const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
+  const category = store.categories.find((item) => item.id === categoryId);
   if (!category) {
     return response.status(400).json({ error: 'Categoria invalida.' });
   }
 
-  db.prepare(
-    `UPDATE tasks
-     SET category_id = ?, title = ?, details = ?, priority = ?, completed = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`
-  ).run(categoryId, title, details, priority, completed, taskId);
+  let updatedTask;
+  updateStore((currentStore) => {
+    const taskIndex = currentStore.tasks.findIndex((task) => task.id === taskId);
+    currentStore.tasks[taskIndex] = {
+      ...currentStore.tasks[taskIndex],
+      categoryId,
+      title,
+      details,
+      priority,
+      completed,
+      updatedAt: createTimestamp()
+    };
 
-  const updatedTask = db
-    .prepare(
-      `SELECT id, category_id, title, details, priority, completed, position, created_at, updated_at
-       FROM tasks
-       WHERE id = ?`
-    )
-    .get(taskId);
+    updatedTask = currentStore.tasks[taskIndex];
+    return currentStore;
+  });
 
   return response.json(mapTask(updatedTask));
 });
 
 app.delete('/api/tasks/:id', (request, response) => {
   const taskId = Number(request.params.id);
-  const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+  let removed = false;
+  updateStore((store) => {
+    const initialLength = store.tasks.length;
+    store.tasks = store.tasks.filter((task) => task.id !== taskId);
+    removed = store.tasks.length !== initialLength;
+    return store;
+  });
 
-  if (!result.changes) {
+  if (!removed) {
     return response.status(404).json({ error: 'Tarefa nao encontrada.' });
   }
 

@@ -11,13 +11,13 @@ Aplicacao web simples para organizar tarefas corporativas com categorias, checkb
 
 1. Em uso local, execute o arquivo iniciar-organizador.bat
 2. Em servidor, execute iniciar-organizador.bat server para nao abrir navegador
-3. Se houver troca de versao do Node.js na maquina, tanto o inicializador quanto o npm start tentam recompilar o better-sqlite3 automaticamente
+3. A aplicacao nao depende de modulos nativos, entao funciona de forma mais estavel em servidores Windows
 4. Se preferir pelo terminal, rode npm install e depois npm start
 5. Abra http://localhost:3210
 
 ## Recursos
 
-- Banco de dados SQLite local criado automaticamente em data/organizador.db
+- Banco local em arquivo JSON criado automaticamente em data/organizador.json
 - Categorias iniciais com as tarefas informadas
 - Inclusao de novas categorias e novas tarefas
 - Marcacao de tarefas concluidas

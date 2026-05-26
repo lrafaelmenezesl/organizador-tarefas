@@ -24,12 +24,6 @@ if not exist node_modules (
   )
 )
 
-call :ensure_native_modules
-if errorlevel 1 (
-  echo Falha ao preparar os modulos nativos para esta versao do Node.js.
-  exit /b 1
-)
-
 if not exist data mkdir data
 
 call :check_running
@@ -63,23 +57,6 @@ if errorlevel 1 (
 ) else (
   set "APP_RUNNING=1"
 )
-exit /b 0
-
-:ensure_native_modules
-node -e "require('better-sqlite3'); console.log('better-sqlite3-ok')" >nul 2>nul
-if not errorlevel 1 exit /b 0
-
-echo Detectada incompatibilidade do modulo SQLite com a versao atual do Node.js.
-echo Recompilando better-sqlite3 para esta maquina...
-call npm rebuild better-sqlite3
-if errorlevel 1 (
-  echo Tentando reinstalar dependencias para corrigir o modulo nativo...
-  call npm install
-  if errorlevel 1 exit /b 1
-)
-
-node -e "require('better-sqlite3'); console.log('better-sqlite3-ok')" >nul 2>nul
-if errorlevel 1 exit /b 1
 exit /b 0
 
 :wait_until_ready

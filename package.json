@@ -1,7 +1,7 @@
 {
   "name": "organizador_rafael",
   "version": "1.0.0",
-  "description": "Organizador de tarefas corporativas com Node.js, SQLite e interface web.",
+  "description": "Organizador de tarefas corporativas com Node.js, banco local em arquivo e interface web.",
   "main": "bootstrap.js",
   "scripts": {
     "start": "node bootstrap.js",
@@ -12,7 +12,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
     "express": "^5.2.1"
   }
 }
