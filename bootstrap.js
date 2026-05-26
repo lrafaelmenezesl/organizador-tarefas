@@ -40,9 +40,32 @@ function isAbiMismatch(error) {
   );
 }
 
+function clearSqliteModuleCache() {
+  const moduleNames = ['better-sqlite3', 'bindings'];
+
+  Object.keys(require.cache).forEach((cacheKey) => {
+    if (moduleNames.some((moduleName) => cacheKey.includes(`${path.sep}${moduleName}${path.sep}`))) {
+      delete require.cache[cacheKey];
+    }
+  });
+}
+
+function verifySqliteRuntime() {
+  clearSqliteModuleCache();
+
+  const Database = require('better-sqlite3');
+  const database = new Database(':memory:');
+
+  try {
+    database.prepare('SELECT 1 AS ok').get();
+  } finally {
+    database.close();
+  }
+}
+
 function ensureSqliteModule() {
   try {
-    require('better-sqlite3');
+    verifySqliteRuntime();
     return;
   } catch (error) {
     if (!isAbiMismatch(error)) {
@@ -61,8 +84,7 @@ function ensureSqliteModule() {
       runPackageCommand(['install'], 'Reconstrucao falhou. Reinstalando dependencias...');
     }
 
-    delete require.cache[require.resolve('better-sqlite3')];
-    require('better-sqlite3');
+    verifySqliteRuntime();
   }
 }
 
