@@ -1,0 +1,18 @@
+{
+  "name": "organizador_rafael",
+  "version": "1.0.0",
+  "description": "Organizador de tarefas corporativas com Node.js, SQLite e interface web.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "Rafael Menezes",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Organizador Rafael</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero__brand">
+          <img class="hero__logo" src="/R.jpg" alt="Logo Trifens Solucoes" />
+          <div>
+            <p class="eyebrow">Painel operacional</p>
+            <h1>Organizador de prioridades</h1>
+            <p class="hero__text">
+              Centralize demandas, marque entregas concluidas e inclua novos itens sem perder o contexto.
+            </p>
+          </div>
+        </div>
+
+        <div class="hero__actions">
+          <div class="summary-grid" id="summaryGrid"></div>
+
+          <form class="panel form-panel" id="taskForm">
+            <h2>Nova tarefa</h2>
+            <label>
+              Titulo
+              <input name="title" type="text" maxlength="180" placeholder="Ex.: Revisar saldo contratual" required />
+            </label>
+
+            <label>
+              Categoria
+              <select name="categoryId" id="taskCategorySelect" required></select>
+            </label>
+
+            <label>
+              Prioridade
+              <select name="priority">
+                <option value="alta">Alta</option>
+                <option value="media" selected>Media</option>
+                <option value="baixa">Baixa</option>
+              </select>
+            </label>
+
+            <label>
+              Observacoes
+              <textarea name="details" rows="3" placeholder="Contexto, pendencias ou proximos passos"></textarea>
+            </label>
+
+            <button type="submit">Adicionar tarefa</button>
+          </form>
+        </div>
+      </header>
+
+      <main>
+        <section class="toolbar panel">
+          <div>
+            <p class="eyebrow">Controle rapido</p>
+            <h2>Filtre o que precisa atacar primeiro</h2>
+          </div>
+
+          <div class="toolbar__controls">
+            <label>
+              Buscar
+              <input id="searchInput" type="search" placeholder="Pesquisar tarefa, contrato, sistema..." />
+            </label>
+
+            <label>
+              Status
+              <select id="statusFilter">
+                <option value="all">Todas</option>
+                <option value="pending">Pendentes</option>
+                <option value="completed">Concluidas</option>
+              </select>
+            </label>
+
+            <label>
+              Prioridade
+              <select id="priorityFilter">
+                <option value="all">Todas</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baixa">Baixa</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <aside class="panel spotlight">
+            <p class="eyebrow">Foco imediato</p>
+            <h2>Top pendencias criticas</h2>
+            <div id="spotlightList" class="spotlight__list"></div>
+
+            <form class="divider-top" id="categoryForm">
+              <h3>Nova categoria</h3>
+              <label>
+                Nome
+                <input name="name" type="text" maxlength="120" placeholder="Ex.: Auditorias" required />
+              </label>
+
+              <label>
+                Cor
+                <input name="color" type="color" value="#c89a00" />
+              </label>
+
+              <button type="submit">Criar categoria</button>
+            </form>
+          </aside>
+
+          <section class="board" id="board"></section>
+        </section>
+      </main>
+    </div>
+
+    <template id="taskCardTemplate">
+      <article class="task-card">
+        <label class="task-card__toggle">
+          <input class="task-toggle" type="checkbox" />
+          <span></span>
+        </label>
+
+        <div class="task-card__content">
+          <div class="task-card__meta">
+            <span class="priority-badge"></span>
+            <span class="task-card__date"></span>
+          </div>
+
+          <h3 class="task-card__title"></h3>
+          <p class="task-card__details"></p>
+
+          <div class="task-card__footer">
+            <select class="task-category-select"></select>
+            <div class="task-card__actions">
+              <button class="ghost-button edit-task-button" type="button">Editar</button>
+              <button class="ghost-button delete-task-button" type="button">Excluir</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
