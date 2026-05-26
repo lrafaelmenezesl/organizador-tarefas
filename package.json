@@ -2,10 +2,10 @@
   "name": "organizador_rafael",
   "version": "1.0.0",
   "description": "Organizador de tarefas corporativas com Node.js, SQLite e interface web.",
-  "main": "server.js",
+  "main": "bootstrap.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node bootstrap.js",
+    "dev": "node --watch bootstrap.js"
   },
   "keywords": [],
   "author": "Rafael Menezes",
